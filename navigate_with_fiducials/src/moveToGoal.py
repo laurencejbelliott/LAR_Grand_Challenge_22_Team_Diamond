@@ -12,6 +12,9 @@ class odomPublisher():
     def __init__(self):
         self.broadcaster = tf.TransformBroadcaster()
         self.odomSub = rospy.Subscriber("/wheel_pose", PoseStamped, callback=self.handleOdom)
+        rospy.wait_for_service('/core2/reset_odometry')
+        self.odomResetter = rospy.ServiceProxy('/core2/reset_odometry', Trigger)
+        self.odomResetter(Trigger())
 
     def handleOdom(self, msg):
         self.broadcaster.sendTransform(
