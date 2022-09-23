@@ -10,26 +10,43 @@ import cv2
 from cv_bridge import CvBridge
 import numpy as np
 
-#rospy.wait_for_service('thorvald_001/spray', Empty)
-
 class Looker():
     """Class to implement looking for green, then stopping"""
-    def __init__(self, thorvaldID):
-        self.id = thorvaldID
+    def __init__(self):
+       
+        # Subscribe
         self.camSub = rospy.Subscriber("/d435i_camera/color/image_raw", Image, self.camCallback)
+        self.depthSub = rospy.Subscriber("/d435i_camera/aligned_depth_to_color/image_raw", Image, self.depth_callback)
+        
         self.camPub = rospy.Publisher("/d435i_camera/color/image_raw/compressed_filtered", Image, queue_size=0)
-        # Publishes the filtered image on /kinect2_camera/hd/image_color_rect_filtered
-        self.stopPub = rospy.Publisher("/d435i" + self.id + "/STOP", Bool, queue_size=0)
+        self.depth_pub = rospy.Publisher("/d435i_camera/color/image_raw/depth_filtered", Image, queue_size=0)
+        
         self.bridge = CvBridge() # Bridge used for converting msgs to cv2 image class
+
+        # Properties
+        self.image = None
+        self.depth = None
+        self.depth_intrinsics = {}
+
+    def depth_callback(self, msg):
+        # format reply
+        reply = Image()
+        reply.header = msg.header
+
+        depth = self.bridge.imgmsg_to_cv2(msg) # Convert msg to actual cv2 image class (480, 640)
+
+        criteria = (depth < 50000).astype(np.uint8)
+        depth = depth * criteria
+
+        self.depth_pub.publish(self.bridge.cv2_to_imgmsg(depth)) 
 
     def camCallback(self, msg):
         # format reply
         reply = Image()
         reply.header = msg.header
 
-        image = self.bridge.imgmsg_to_cv2(msg, "bgr8") # Convert msg to actual cv2 image class
+        image = self.bridge.imgmsg_to_cv2(msg, "bgr8") # Convert msg to actual cv2 image class       
         
-
         # # HSV THRESH
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV) # Convert to HSV, easier to separate green
 
@@ -96,18 +113,13 @@ class Looker():
         self.camPub.publish(self.bridge.cv2_to_imgmsg(image, 'bgr8')) # Convert image back to bgr8 image msg, then publish
         #self.camPub.publish(self.bridge.cv2_to_imgmsg(self.image)) # Convert image back to bgr8 image msg, then publish
 
-        # # print(np.sum(mask)) # Print number of matched pixels for sanity check
-        # if np.sum(mask) > 100000: # If enough pixels fit in the filter
-        #     self.stopPub.publish(True) # Publish "STOP" variable
-        #     # rospy.wait_for_service('thorvald_' + self.id + '/spray', Empty)
-        # else:
-        #     self.stopPub.publish(False) # else don't stop
+       
         
-thorvaldID = str(sys.argv[1]) if len(sys.argv) > 1 else "001"
-rospy.init_node("looker_" + thorvaldID)
-mover = Looker(thorvaldID)
 
-print("Filter node running!")
-
-rospy.spin()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    rospy.init_node("pheno")
+    node = Looker()    
+  
+    print("Filter node running!")
+    rospy.spin()
+    cv2.destroyAllWindows()
