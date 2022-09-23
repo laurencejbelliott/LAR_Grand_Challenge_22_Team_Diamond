@@ -4,13 +4,14 @@ import rospy
 import tf
 from geometry_msgs.msg import PoseStamped, Pose, PoseWithCovarianceStamped
 from std_srvs.srv import Empty
+import math
 
 class odomPublisher():
     def __init__(self):
         self.broadcaster = tf.TransformBroadcaster()
-        self.odomSub = rospy.Subscriber("/fiducial_pose", PoseWithCovarianceStamped, callback=self.handleOdom)
+        self.odomSub = rospy.Subscriber("/wheel_pose", PoseStamped, callback=self.handleOdom)
 
-        rospy.wait_for_service("fiducials/clear_map", Empty)
+        # rospy.wait_for_service("/fiducials/clear_map", Empty)
 
     def handleOdom(self, msg):
         self.broadcaster.sendTransform(
