@@ -6,11 +6,15 @@ import message_filters
 import math
 import sys
 import tf
+from std_srvs.srv import Trigger
 
 class odomPublisher():
     def __init__(self):
         self.broadcaster = tf.TransformBroadcaster()
         self.odomSub = rospy.Subscriber("/wheel_pose", PoseStamped, callback=self.handleOdom)
+        rospy.wait_for_service('/core2/reset_odometry')
+        self.odomResetter = rospy.ServiceProxy('/core2/reset_odometry', Trigger)
+        self.odomResetter(Trigger())
 
     def handleOdom(self, msg):
         self.broadcaster.sendTransform(
@@ -24,8 +28,8 @@ class odomPublisher():
 class MoveToGoal:
     def __init__(self):
         self.odomSub = rospy.Subscriber("/wheel_pose", PoseStamped, callback=self.callback)
-        self.anglePrecision = 0.1
-        self.distancePrecision = 0.1
+        self.anglePrecision = 0.08
+        self.distancePrecision = 0.05
         self.twistPub = rospy.Publisher("/cmd_vel", Twist, queue_size=0)
         self.goalSub = rospy.Subscriber("/goal", Pose, callback=self.setGoal)
 
@@ -55,10 +59,15 @@ class MoveToGoal:
         print("Angle required: ", angleRequired)
 
         yawResponse = PID(angleCurrent, angleRequired, threshold=self.anglePrecision)
+        yawResponse = yawResponse%2*math.pi
+        # if self.goalX - odomX < 0:
+        #     yawResponse += math.pi
+        if yawResponse > math.pi:
+            yawResponse -= 2*math.pi
 
         print("Yaw response: ", yawResponse)
 
-        distance = ((self.goalX - odomX)**2 + (self.goalY - odomY)**2)**0.5
+        distance = math.sqrt(((self.goalX - odomX)**2 + (self.goalY - odomY)**2))
         print("Distance: ", distance)
         print("-"*16)
         if(yawResponse != 0):
@@ -73,7 +82,7 @@ class MoveToGoal:
         
 
 def PID(actual, goal, threshold=0):
-    pGain = 2.0
+    pGain = 1.0
     # iGain = 1
     # dGain = 1
 
@@ -89,7 +98,7 @@ def PID(actual, goal, threshold=0):
 def main():
     rospy.init_node("MoveToGoal")
     mover = MoveToGoal()
-    odomPublisher = OdomPublisher()
+    # odomPublisher = OdomPublisher()
 
     rospy.spin()
 
