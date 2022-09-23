@@ -40,6 +40,7 @@ class PhenoProc:
         self.depth = None
         self.depth_mask = None
         self.depth_intrinsics = {}
+        self.counter = 0
 
     def depth_callback(self, msg):
         # format reply
@@ -89,6 +90,10 @@ class PhenoProc:
         criteria = (threshInv > 0).astype(np.uint8) 
         out_image = image * np.expand_dims(criteria,2)
 
+        average_exg = np.mean(exg[exg !=0 ])
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(out_image, f'ExG: {average_exg}', (10,50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
         # kernel = np.ones((5, 5), np.uint8)
         # thresh = cv2.erode(thresh, kernel, iterations=1)
 
@@ -111,7 +116,9 @@ class PhenoProc:
         # )
 
 
-        image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+        # image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+        cv2.imwrite(f"images/{self.counter}.jpg",out_image)
+        self.counter+=1
 
         self.cam_pub.publish(
             self.bridge.cv2_to_imgmsg(out_image, "bgr8")
