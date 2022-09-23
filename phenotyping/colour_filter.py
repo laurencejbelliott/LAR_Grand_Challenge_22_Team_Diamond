@@ -50,7 +50,7 @@ class PhenoProc:
             msg
         )  # Convert msg to actual cv2 image class (480, 640)        
 
-        criteria = (depth < 3000).astype(np.uint8)
+        criteria = ((depth < 1500) & (depth > 800)).astype(np.uint8) # depth in mm
         depth = depth * criteria      
 
         mask = (depth > 0).astype(np.uint8)   
@@ -71,7 +71,6 @@ class PhenoProc:
         # Filter based on depth
         if self.depth_mask is not None:
             image = image * np.expand_dims(self.depth_mask,2)
-
 
         # EXG = 2 * G - B - R
         blue = image[:, :, 0]
