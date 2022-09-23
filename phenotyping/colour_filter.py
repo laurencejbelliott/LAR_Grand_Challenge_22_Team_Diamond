@@ -41,7 +41,7 @@ class PhenoProc:
         self.depth = None
         self.depth_mask = None
         self.depth_intrinsics = {}
-        self.counter = 0
+        self.imgcounter = 0
 
     def depth_callback(self, msg):
         # format reply
@@ -130,7 +130,7 @@ class PhenoProc:
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(
             out_image,
-            f"ExG: {average_exg}",
+            "ExG: {:.2f}".format(average_exg),
             (10, 50),
             font,
             1,
@@ -171,8 +171,8 @@ class PhenoProc:
         # )
 
         # image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-        cv2.imwrite(f"images/{self.counter}.jpg", out_image)
-        self.counter += 1
+        #cv2.imwrite(f"images/{self.counter}.jpg", blurred)
+        self.imgcounter += 1
 
         self.cam_pub.publish(
             self.bridge.cv2_to_imgmsg(out_image, "bgr8")
