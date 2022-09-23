@@ -86,29 +86,35 @@ class PhenoProc:
         (T, threshInv) = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)
         thresh = 255 - threshInv
 
-        kernel = np.ones((5, 5), np.uint8)
-        thresh = cv2.erode(thresh, kernel, iterations=1)
+        criteria = (threshInv > 0).astype(np.uint8) 
+        out_image = image * np.expand_dims(criteria,2)
 
-        params = cv2.SimpleBlobDetector_Params()
-        params.filterByArea = True
-        params.minArea = 1000
-        params.filterByCircularity = False
-        params.filterByConvexity = False
+        # kernel = np.ones((5, 5), np.uint8)
+        # thresh = cv2.erode(thresh, kernel, iterations=1)
 
-        detector = cv2.SimpleBlobDetector_create(params)
+        # params = cv2.SimpleBlobDetector_Params()
+        # params.filterByArea = True
+        # params.minArea = 1000
+        # params.filterByCircularity = False
+        # params.filterByConvexity = False
 
-        keypoints = detector.detect(thresh)
+        # detector = cv2.SimpleBlobDetector_create(params)
 
-        image = cv2.drawKeypoints(
-            image,
-            keypoints,
-            np.array([]),
-            (0, 0, 255),
-            cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
-        )
+        # keypoints = detector.detect(thresh)
+
+        # image = cv2.drawKeypoints(
+        #     image,
+        #     keypoints,
+        #     np.array([]),
+        #     (0, 0, 255),
+        #     cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+        # )
+
+
+        image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
 
         self.cam_pub.publish(
-            self.bridge.cv2_to_imgmsg(image, "bgr8")
+            self.bridge.cv2_to_imgmsg(out_image, "bgr8")
         )  # Convert image back to bgr8 image msg, then publish
 
 
