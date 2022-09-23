@@ -38,6 +38,7 @@ class PhenoProc:
         # Properties
         self.image = None
         self.depth = None
+        self.depth_mask = None
         self.depth_intrinsics = {}
 
     def depth_callback(self, msg):
@@ -47,11 +48,15 @@ class PhenoProc:
 
         depth = self.bridge.imgmsg_to_cv2(
             msg
-        )  # Convert msg to actual cv2 image class (480, 640)
+        )  # Convert msg to actual cv2 image class (480, 640)        
 
-        criteria = (depth < 50000).astype(np.uint8)
-        depth = depth * criteria
+        criteria = (depth < 3000).astype(np.uint8)
+        depth = depth * criteria      
 
+        mask = (depth > 0).astype(np.uint8)   
+         
+        self.depth_mask = mask   
+        
         self.depth_pub.publish(self.bridge.cv2_to_imgmsg(depth))
 
     def cam_callback(self, msg):
@@ -62,6 +67,11 @@ class PhenoProc:
         image = self.bridge.imgmsg_to_cv2(
             msg, "bgr8"
         )  # Convert msg to actual cv2 image class
+
+        # Filter based on depth
+        if self.depth_mask is not None:
+            image = image * np.expand_dims(self.depth_mask,2)
+
 
         # EXG = 2 * G - B - R
         blue = image[:, :, 0]
