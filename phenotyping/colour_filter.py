@@ -3,6 +3,7 @@ LAR Summer Camp 2022
 Maintainer: Katherine James kajames@lincoln.ac.uk
 Class to compute basic phenotyping of crops in the walled garden. Filters using vegetation index ExG, blob detection and use of the depth camera.
 """
+from decimal import MAX_EMAX
 import rospy
 import sys
 from std_srvs.srv import Empty
@@ -49,15 +50,15 @@ class PhenoProc:
 
         depth = self.bridge.imgmsg_to_cv2(
             msg
-        )  # Convert msg to actual cv2 image class (480, 640)        
+        )  # Convert msg to actual cv2 image class (480, 640)
 
-        criteria = ((depth < 1500) & (depth > 800)).astype(np.uint8) # depth in mm
-        depth = depth * criteria      
+        criteria = ((depth < 1500) & (depth > 800)).astype(np.uint8)  # depth in mm
+        depth = depth * criteria
 
-        mask = (depth > 0).astype(np.uint8)   
-         
-        self.depth_mask = mask   
-        
+        mask = (depth > 0).astype(np.uint8)
+
+        self.depth_mask = mask
+
         self.depth_pub.publish(self.bridge.cv2_to_imgmsg(depth))
 
     def cam_callback(self, msg):
@@ -71,7 +72,7 @@ class PhenoProc:
 
         # Filter based on depth
         if self.depth_mask is not None:
-            image = image * np.expand_dims(self.depth_mask,2)
+            image = image * np.expand_dims(self.depth_mask, 2)
 
         # EXG = 2 * G - B - R
         blue = image[:, :, 0]
@@ -81,18 +82,65 @@ class PhenoProc:
         exg = 2 * green - blue - red
         exg = np.expand_dims(exg, axis=2)
 
+        # Filter based on ExG
         kernel = np.ones((5, 5), np.float32) / 25
         blurred = cv2.filter2D(exg, -1, kernel)
 
         (T, threshInv) = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)
         thresh = 255 - threshInv
 
-        criteria = (threshInv > 0).astype(np.uint8) 
-        out_image = image * np.expand_dims(criteria,2)
+        criteria = (threshInv > 0).astype(np.uint8)  # convert non-zeros to 1s
+        out_image = image * np.expand_dims(criteria, 2)
 
-        average_exg = np.mean(exg[exg !=0 ])
+        # Detect crop height (pseudo)
+
+        # nonzero = np.argwhere(out_image[:,:,0] != 0)
+        height = -1
+        contours, hierarchy = cv2.findContours(
+            image=blurred, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_SIMPLE
+        )
+        cv2.drawContours(
+            image=out_image,
+            contours=contours,
+            contourIdx=0,
+            color=(0, 255, 0),
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+        # c = contours[0]
+        for c in contours:
+            if cv2.contourArea(c) > 10000:
+                rect = cv2.boundingRect(c)
+                x, y, w, h = rect
+                cv2.rectangle(out_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                height = h
+
+        # cv2.line(out_image, (0, min_y), (640, min_y), (0, 255, 0), thickness=2)
+        # cv2.line(out_image, (0, max_y), (640, max_y), (255, 0, 0), thickness=2)
+
+        # Print to image
+        average_exg = np.mean(exg[exg != 0])
         font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(out_image, f'ExG: {average_exg}', (10,50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(
+            out_image,
+            f"ExG: {average_exg}",
+            (10, 50),
+            font,
+            1,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+        cv2.putText(
+            out_image,
+            f"Height: {height} px",
+            (10, 100),
+            font,
+            1,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
 
         # kernel = np.ones((5, 5), np.uint8)
         # thresh = cv2.erode(thresh, kernel, iterations=1)
@@ -115,10 +163,9 @@ class PhenoProc:
         #     cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
         # )
 
-
         # image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-        cv2.imwrite(f"images/{self.counter}.jpg",out_image)
-        self.counter+=1
+        cv2.imwrite(f"images/{self.counter}.jpg", out_image)
+        self.counter += 1
 
         self.cam_pub.publish(
             self.bridge.cv2_to_imgmsg(out_image, "bgr8")
