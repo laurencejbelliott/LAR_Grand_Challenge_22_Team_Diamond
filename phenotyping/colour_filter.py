@@ -95,25 +95,32 @@ class PhenoProc:
         # Detect crop height (pseudo)
 
         # nonzero = np.argwhere(out_image[:,:,0] != 0)
+
+        kernel = np.ones((5, 5), np.uint8)
+        connected = cv2.dilate(blurred, kernel, iterations=1)
+
         height = -1
         contours, hierarchy = cv2.findContours(
-            image=blurred, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_SIMPLE
+            image=connected, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_SIMPLE
         )
-        cv2.drawContours(
-            image=out_image,
-            contours=contours,
-            contourIdx=0,
-            color=(0, 255, 0),
-            thickness=1,
-            lineType=cv2.LINE_AA,
-        )
+        # cv2.drawContours(
+        #     image=out_image,
+        #     contours=contours,
+        #     contourIdx=0,
+        #     color=(0, 255, 0),
+        #     thickness=1,
+        #     lineType=cv2.LINE_AA,
+        # )
         # c = contours[0]
+        counter = 0
         for c in contours:
             if cv2.contourArea(c) > 10000:
                 rect = cv2.boundingRect(c)
                 x, y, w, h = rect
                 cv2.rectangle(out_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                height = h
+                height +=h
+                counter+=1
+        height = height/counter
 
         # cv2.line(out_image, (0, min_y), (640, min_y), (0, 255, 0), thickness=2)
         # cv2.line(out_image, (0, max_y), (640, max_y), (255, 0, 0), thickness=2)
